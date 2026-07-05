@@ -1,0 +1,389 @@
+@model IEnumerable<LeakGuard.Models.Incident>
+@{
+    ViewData["Title"] = "Incidents";
+
+    string sort = ViewBag.Sort ?? "desc";
+    string? search = ViewBag.Search;
+    int? ruleId = ViewBag.RuleId;
+    int? actionTypeId = ViewBag.ActionTypeId;
+    string? fromDate = ViewBag.From;
+    string? toDate = ViewBag.To;
+    bool isFiltered = !string.IsNullOrEmpty(search) || ruleId.HasValue || actionTypeId.HasValue
+        || !string.IsNullOrEmpty(fromDate) || !string.IsNullOrEmpty(toDate);
+
+    var ruleOptions = ViewBag.RuleOptions as IEnumerable<LeakGuard.Models.Rule> ?? Enumerable.Empty<LeakGuard.Models.Rule>();
+    var actionTypeOptions = ViewBag.ActionTypeOptions as IEnumerable<LeakGuard.Models.ActionType> ?? Enumerable.Empty<LeakGuard.Models.ActionType>();
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-1">Incident Log</h4>
+        <p class="text-muted mb-0">Full forensic record of all detected data leak attempts.</p>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        <span class="badge bg-danger bg-opacity-25 text-danger px-3 py-2 rounded-pill fs-6">
+            <i class="bi bi-shield-slash me-1"></i><span id="totalIncidentsBadgeCount">@(ViewBag.TotalIncidents ?? 0)</span> Total
+        </span>
+        <a href="@Url.Action("ExportPdf", "Incidents", new { sort, search, ruleId, actionTypeId, from = fromDate, to = toDate })"
+           id="btnExportPdf"
+           class="btn btn-sm px-4 py-2 fw-semibold"
+           style="background: linear-gradient(135deg, #0D6EFD, #6f42c1); color: #fff; border: none; border-radius: 8px; box-shadow: 0 0 16px rgba(13,110,253,0.35); transition: all 0.2s ease;"
+           onmouseover="this.style.boxShadow='0 0 24px rgba(13,110,253,0.65)'; this.style.transform='translateY(-1px)';"
+           onmouseout="this.style.boxShadow='0 0 16px rgba(13,110,253,0.35)'; this.style.transform='translateY(0)';"
+           title="Export all incidents to a professional PDF report">
+            <i class="bi bi-file-earmark-pdf-fill me-2"></i>Export PDF Report
+        </a>
+    </div>
+</div>
+
+<!-- FILTER BAR -->
+<form method="get" id="filterForm" class="glass-panel p-3 mb-4">
+    <input type="hidden" name="sort" value="@sort" />
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-3">
+            <label class="form-label text-muted small fw-semibold text-uppercase mb-1" for="filterSearch">Search</label>
+            <input type="text" id="filterSearch" name="search" class="form-control form-control-sm"
+                   placeholder="File path or matched content..." value="@search" autocomplete="off" />
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label text-muted small fw-semibold text-uppercase mb-1" for="filterRule">Rule</label>
+            <select id="filterRule" name="ruleId" class="form-select form-select-sm">
+                <option value="">All rules</option>
+                @foreach (var r in ruleOptions)
+                {
+                    <option value="@r.RuleID" selected="@(ruleId == r.RuleID)">@r.RuleName</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label text-muted small fw-semibold text-uppercase mb-1" for="filterAction">Action</label>
+            <select id="filterAction" name="actionTypeId" class="form-select form-select-sm">
+                <option value="">All actions</option>
+                @foreach (var a in actionTypeOptions)
+                {
+                    <option value="@a.ActionTypeID" selected="@(actionTypeId == a.ActionTypeID)">@a.ActionName</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label text-muted small fw-semibold text-uppercase mb-1" for="filterFrom">From</label>
+            <input type="date" id="filterFrom" name="from" class="form-control form-control-sm" value="@fromDate" />
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label text-muted small fw-semibold text-uppercase mb-1" for="filterTo">To</label>
+            <input type="date" id="filterTo" name="to" class="form-control form-control-sm" value="@toDate" />
+        </div>
+        <div class="col-12 col-md-1 d-flex gap-1">
+            <button type="submit" class="btn btn-sm btn-primary flex-grow-1" title="Apply filters">
+                <i class="bi bi-funnel"></i>
+            </button>
+            @if (isFiltered)
+            {
+                <a href="@Url.Action("Index", new { sort })" class="btn btn-sm btn-outline-secondary" title="Clear filters">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            }
+        </div>
+    </div>
+</form>
+
+<div class="glass-panel">
+    <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Endpoint</th>
+                    <th>Rule Triggered</th>
+                    <th>Matched Content</th>
+                    <th>Action Taken</th>
+                    <th>
+                        <a href="@Url.Action("Index", new { page = 1, sort = sort == "desc" ? "asc" : "desc", search, ruleId, actionTypeId, from = fromDate, to = toDate })"
+                           class="text-decoration-none text-reset" title="@(sort == "desc" ? "Oldest first" : "Newest first")">
+                            Timestamp <i class="bi @(sort == "desc" ? "bi-sort-down" : "bi-sort-up") text-primary"></i>
+                        </a>
+                    </th>
+                    <th class="text-end">Details</th>
+                </tr>
+            </thead>
+            <tbody id="incidentsTableBody">
+                @if (!Model.Any())
+                {
+                    <tr data-placeholder="true">
+                        <td colspan="7" class="text-center text-muted py-5">
+                            @if (isFiltered)
+                            {
+                                <i class="bi bi-funnel fs-3 d-block mb-2 text-info"></i>
+                                <span>No incidents match your filters.</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-shield-check fs-3 d-block mb-2 text-success"></i>
+                                <span>No incidents detected. System is clean.</span>
+                            }
+                        </td>
+                    </tr>
+                }
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td class="text-muted small">#@item.IncidentID</td>
+                        <td>
+                            <i class="bi bi-pc-display me-1 text-info"></i>@(item.Endpoint?.Hostname ?? "Unknown")
+                        </td>
+                        <td>
+                            <span class="badge bg-primary bg-opacity-25 text-primary">@(item.Rule?.RuleName ?? "Unknown")</span>
+                        </td>
+                        <td>
+                            <code class="text-warning small text-truncate d-inline-block" style="max-width:200px" title="@item.MatchedText">@(item.MatchedText ?? "-")</code>
+                        </td>
+                        <td>
+                            @{
+                                var actionName = item.ActionType?.ActionName ?? "Alerted";
+                                var badgeClass = actionName switch {
+                                    "Blocked" => "bg-danger",
+                                    "Quarantined" => "bg-warning text-dark",
+                                    _ => "bg-info text-dark"
+                                };
+                            }
+                            <span class="badge @badgeClass">@actionName</span>
+                        </td>
+                        <td class="text-muted small">@item.Timestamp.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-info"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#incidentDetailModal"
+                                    data-id="@item.IncidentID"
+                                    data-endpoint="@(item.Endpoint?.Hostname ?? "Unknown")"
+                                    data-rule="@(item.Rule?.RuleName ?? "Unknown")"
+                                    data-matchvalue="@(item.Rule?.MatchValue ?? "")"
+                                    data-filepath="@item.FilePath"
+                                    data-matched="@item.MatchedText"
+                                    data-action="@actionName"
+                                    data-time="@item.Timestamp.ToLocalTime().ToString("MMMM dd, yyyy HH:mm:ss")">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (ViewBag.TotalPages > 1)
+{
+    int currentPage = ViewBag.CurrentPage;
+    int totalPages = ViewBag.TotalPages;
+    int totalIncidents = ViewBag.TotalIncidents;
+    int pageSize = 10;
+    int firstItem = (currentPage - 1) * pageSize + 1;
+    int lastItem = Math.Min(currentPage * pageSize, totalIncidents);
+
+    // Sliding window: show up to 5 page numbers centered on the current page,
+    // so the bar stays the same size whether there are 19 pages or 100,000.
+    int windowStart = Math.Max(1, currentPage - 2);
+    int windowEnd = Math.Min(totalPages, currentPage + 2);
+    if (windowEnd - windowStart < 4)
+    {
+        if (windowStart == 1) windowEnd = Math.Min(totalPages, windowStart + 4);
+        else if (windowEnd == totalPages) windowStart = Math.Max(1, windowEnd - 4);
+    }
+
+    string inactiveCss = "page-link bg-dark text-white border-secondary border-opacity-25";
+    string activeCss = "page-link bg-primary border-primary";
+
+    Func<int, string?> pageUrl = p => Url.Action("Index",
+        new { page = p, sort, search, ruleId, actionTypeId, from = fromDate, to = toDate });
+
+    <nav aria-label="Incident pagination" class="mt-4">
+        <ul class="pagination justify-content-center pagination-sm mb-2">
+            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                <a class="@inactiveCss" href="@pageUrl(1)" title="First page">&laquo;</a>
+            </li>
+            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                <a class="@inactiveCss" href="@pageUrl(currentPage - 1)" tabindex="-1">Previous</a>
+            </li>
+
+            @if (windowStart > 1)
+            {
+                <li class="page-item disabled"><span class="@inactiveCss">&hellip;</span></li>
+            }
+
+            @for (int i = windowStart; i <= windowEnd; i++)
+            {
+                <li class="page-item @(currentPage == i ? "active" : "")">
+                    <a class="@(currentPage == i ? activeCss : inactiveCss)" href="@pageUrl(i)">@i</a>
+                </li>
+            }
+
+            @if (windowEnd < totalPages)
+            {
+                <li class="page-item disabled"><span class="@inactiveCss">&hellip;</span></li>
+            }
+
+            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                <a class="@inactiveCss" href="@pageUrl(currentPage + 1)">Next</a>
+            </li>
+            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                <a class="@inactiveCss" href="@pageUrl(totalPages)" title="Last page">&raquo;</a>
+            </li>
+        </ul>
+        <p class="text-center text-muted small mb-0">
+            Showing @firstItem&ndash;@lastItem of @totalIncidents.ToString("N0") incidents &middot; page @currentPage of @totalPages.ToString("N0")
+        </p>
+    </nav>
+}
+
+<!-- INCIDENT DETAIL MODAL -->
+<div class="modal fade" id="incidentDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content bg-dark border border-info border-opacity-25">
+            <div class="modal-header border-info border-opacity-25">
+                <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-text me-2 text-info"></i>Incident Report <span id="modalIncidentID" class="text-muted fw-normal"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:rgba(255,255,255,0.04)">
+                            <p class="text-muted small text-uppercase fw-semibold mb-1">Endpoint</p>
+                            <p class="mb-0 fw-semibold" id="modalEndpoint"></p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:rgba(255,255,255,0.04)">
+                            <p class="text-muted small text-uppercase fw-semibold mb-1">Timestamp</p>
+                            <p class="mb-0 fw-semibold" id="modalTime"></p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:rgba(255,255,255,0.04)">
+                            <p class="text-muted small text-uppercase fw-semibold mb-1">Rule Triggered</p>
+                            <p class="mb-0 fw-semibold text-danger" id="modalRule"></p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:rgba(255,255,255,0.04)">
+                            <p class="text-muted small text-uppercase fw-semibold mb-1">Action Taken</p>
+                            <p class="mb-0 fw-semibold" id="modalAction"></p>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="p-3 rounded-3" style="background:rgba(255,255,255,0.04)">
+                            <p class="text-muted small text-uppercase fw-semibold mb-1">File Path</p>
+                            <code class="text-warning d-block" id="modalFilePath" style="word-break:break-all"></code>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="p-3 rounded-3 border border-danger border-opacity-25" style="background:rgba(220,53,69,0.05)">
+                            <p class="text-muted small text-uppercase fw-semibold mb-1">Matched Content</p>
+                            <code class="text-danger d-block" id="modalMatched" style="word-break:break-all"></code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary border-opacity-25">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.getElementById('incidentDetailModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('modalIncidentID').textContent = `#${btn.getAttribute('data-id')}`;
+        document.getElementById('modalEndpoint').textContent = btn.getAttribute('data-endpoint');
+        document.getElementById('modalRule').textContent = btn.getAttribute('data-rule');
+        document.getElementById('modalTime').textContent = btn.getAttribute('data-time');
+        document.getElementById('modalFilePath').textContent = btn.getAttribute('data-filepath') || 'N/A';
+        document.getElementById('modalMatched').textContent = btn.getAttribute('data-matched') || 'N/A';
+        document.getElementById('modalAction').textContent = btn.getAttribute('data-action');
+    });
+
+    // Active search: filters apply themselves. The search box waits until you
+    // pause typing (500ms); dropdowns and dates apply immediately on change.
+    (function () {
+        const filterForm = document.getElementById('filterForm');
+        const searchBox = document.getElementById('filterSearch');
+        let searchTimer;
+
+        searchBox.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                sessionStorage.setItem('lgSearchFocus', '1');
+                filterForm.submit();
+            }, 500);
+        });
+
+        ['filterRule', 'filterAction', 'filterFrom', 'filterTo'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => filterForm.submit());
+        });
+
+        // After a reload triggered by typing, put the cursor back at the end
+        // of the search box so typing continues uninterrupted.
+        if (sessionStorage.getItem('lgSearchFocus')) {
+            sessionStorage.removeItem('lgSearchFocus');
+            searchBox.focus();
+            searchBox.setSelectionRange(searchBox.value.length, searchBox.value.length);
+        }
+    })();
+
+    // Live-update the incident log when the scanner pushes a new incident.
+    // Registered in addition to the toast handler in _Layout.cshtml.
+    // Rows are only inserted live on the default view (page 1, newest first,
+    // no filters) — anywhere else the new incident may not belong on screen.
+    const liveInsertOk = @(((int)ViewBag.CurrentPage == 1 && sort == "desc" && !isFiltered) ? "true" : "false");
+
+    connection.on("ReceiveIncident", (data) => {
+        if (!liveInsertOk) return;
+
+        const badgeCount = document.getElementById('totalIncidentsBadgeCount');
+        if (badgeCount) badgeCount.textContent = parseInt(badgeCount.textContent) + 1;
+
+        const tbody = document.getElementById('incidentsTableBody');
+        if (!tbody) return;
+
+        tbody.querySelector('tr[data-placeholder]')?.remove();
+
+        const time = data.timestamp ? new Date(data.timestamp) : new Date();
+        const shortTime = time.toLocaleString('en-US', { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+        const longTime = time.toLocaleString('en-US', { month: 'long', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+
+        const row = document.createElement('tr');
+        row.className = 'live-incident-row';
+        row.innerHTML = `
+            <td class="text-muted small">#${escHtml(data.incidentId)}</td>
+            <td><i class="bi bi-pc-display me-1 text-info"></i>${escHtml(data.hostname)}</td>
+            <td><span class="badge bg-primary bg-opacity-25 text-primary">${escHtml(data.ruleName)}</span></td>
+            <td><code class="text-warning small text-truncate d-inline-block" style="max-width:200px" title="${escHtml(data.matchedText)}">${escHtml(data.matchedText || '-')}</code></td>
+            <td><span class="badge ${actionBadgeClass(data.action)}">${escHtml(data.action)}</span></td>
+            <td class="text-muted small">${shortTime}</td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#incidentDetailModal"></button>
+            </td>
+        `;
+
+        // Set data attributes safely (values may contain quotes/HTML characters)
+        const detailBtn = row.querySelector('button');
+        detailBtn.innerHTML = '<i class="bi bi-eye"></i>';
+        detailBtn.setAttribute('data-id', data.incidentId);
+        detailBtn.setAttribute('data-endpoint', data.hostname ?? 'Unknown');
+        detailBtn.setAttribute('data-rule', data.ruleName ?? 'Unknown');
+        detailBtn.setAttribute('data-matchvalue', data.matchValue ?? '');
+        detailBtn.setAttribute('data-filepath', data.filePath ?? '');
+        detailBtn.setAttribute('data-matched', data.matchedText ?? '');
+        detailBtn.setAttribute('data-action', data.action ?? 'Alerted');
+        detailBtn.setAttribute('data-time', longTime);
+
+        tbody.prepend(row);
+
+        // Keep the page at its normal size (10 rows per page)
+        while (tbody.rows.length > 10) {
+            tbody.deleteRow(tbody.rows.length - 1);
+        }
+    });
+</script>
+}

@@ -1,0 +1,218 @@
+@model IEnumerable<LeakGuard.Models.MonitoredDirectory>
+@{
+    ViewData["Title"] = "Monitored Directories";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-1">Monitored Directories</h4>
+        <p class="text-muted mb-0">Configure which folders the endpoint agent watches in real-time.</p>
+    </div>
+    <div>
+        <button class="btn btn-warning px-4 me-2" data-bs-toggle="modal" data-bs-target="#simulateModal">
+            <i class="bi bi-cloud-arrow-up me-2"></i>Simulate File Drop (Cloud Test)
+        </button>
+        <button class="btn btn-primary px-4" data-bs-toggle="modal" data-bs-target="#createDirModal">
+            <i class="bi bi-folder-plus me-2"></i>Add Directory
+        </button>
+    </div>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show rounded-3 mb-4" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>@TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show rounded-3 mb-4" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>@TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="glass-panel">
+    <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Directory Path</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Any())
+                {
+                    <tr>
+                        <td colspan="3" class="text-center text-muted py-5">
+                            <i class="bi bi-folder2-open fs-3 d-block mb-2"></i>
+                            No directories configured. Add a folder to start monitoring.
+                        </td>
+                    </tr>
+                }
+                @foreach (var item in Model)
+                {
+                    <tr class="@(item.Status == "Enabled" ? "" : "row-archived")">
+                        <td>
+                            <i class="bi bi-folder2 me-2 text-warning"></i>
+                            <code class="text-light">@item.DirectoryPath</code>
+                        </td>
+                        <td>
+                            @if (item.Status == "Enabled")
+                            {
+                                <span class="badge bg-success bg-opacity-25 text-success">
+                                    <i class="bi bi-circle-fill small me-1"></i>Enabled
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary bg-opacity-25 text-secondary">
+                                    <i class="bi bi-circle-fill small me-1"></i>Disabled
+                                </span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-secondary me-1"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editDirModal"
+                                    data-id="@item.MonitoredDirectoryID"
+                                    data-path="@item.DirectoryPath"
+                                    data-status="@item.Status">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <form asp-action="ToggleStatus" asp-route-id="@item.MonitoredDirectoryID" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                @if (item.Status == "Enabled")
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-warning" title="Disable monitoring for this directory">
+                                        <i class="bi bi-pause-circle"></i>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Resume monitoring for this directory">
+                                        <i class="bi bi-play-circle"></i>
+                                    </button>
+                                }
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- CREATE MODAL -->
+<div class="modal fade" id="createDirModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark border border-secondary border-opacity-50">
+            <div class="modal-header border-secondary border-opacity-25">
+                <h5 class="modal-title fw-bold"><i class="bi bi-folder-plus me-2 text-primary"></i>Add Monitored Directory</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form asp-action="Create" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-semibold text-uppercase">Directory Path</label>
+                        <input type="text" name="DirectoryPath" class="form-control font-monospace" placeholder="e.g. C:\Users\Public\Documents" required />
+                        <div class="form-text">Enter the full absolute path to the folder you want to monitor.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-semibold text-uppercase">Status</label>
+                        <select name="Status" class="form-select">
+                            <option value="Enabled">Enabled</option>
+                            <option value="Disabled">Disabled</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary border-opacity-25">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary px-4"><i class="bi bi-folder-check me-1"></i>Add Directory</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal fade" id="editDirModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark border border-secondary border-opacity-50">
+            <div class="modal-header border-secondary border-opacity-25">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil me-2 text-warning"></i>Edit Directory</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editDirForm" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="editDirID" name="MonitoredDirectoryID" />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-semibold text-uppercase">Directory Path</label>
+                        <input type="text" id="editDirPath" name="DirectoryPath" class="form-control font-monospace" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-semibold text-uppercase">Status</label>
+                        <select id="editDirStatus" name="Status" class="form-select">
+                            <option value="Enabled">Enabled</option>
+                            <option value="Disabled">Disabled</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary border-opacity-25">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning text-dark px-4">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- SIMULATE MODAL -->
+<div class="modal fade" id="simulateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark border border-warning border-opacity-50">
+            <div class="modal-header border-warning border-opacity-25">
+                <h5 class="modal-title fw-bold text-warning"><i class="bi bi-cloud-arrow-up me-2"></i>Simulate File Creation</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form asp-action="SimulateLeak" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-body">
+                    <p class="text-light small">
+                        This tool lets you test the scanning engine when LeakGuard is hosted online. 
+                        It will create a fake text file on the cloud server and write the text below into it. 
+                        The background scanner will instantly detect it and scan the contents.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-semibold text-uppercase">Test Content</label>
+                        <textarea name="leakContent" class="form-control font-monospace" rows="4" placeholder="e.g. This is a CONFIDENTIAL document containing credit card 4111222233334444" required></textarea>
+                        <div class="form-text">Type words that trigger your detection rules.</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-warning border-opacity-25">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning px-4"><i class="bi bi-lightning-charge me-1"></i>Drop File</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.getElementById('editDirModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        const id = btn.getAttribute('data-id');
+        document.getElementById('editDirID').value = id;
+        document.getElementById('editDirPath').value = btn.getAttribute('data-path');
+        document.getElementById('editDirStatus').value = btn.getAttribute('data-status');
+        document.getElementById('editDirForm').action = `/MonitoredDirectories/Edit/${id}`;
+    });
+</script>
+}

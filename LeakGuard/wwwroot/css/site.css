@@ -1,0 +1,157 @@
+/* LeakGuard Premium Dashboard Styles */
+
+body {
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+}
+
+/* Sidebar Styling */
+#wrapper {
+    display: flex;
+    min-height: 100vh;
+}
+
+#sidebar-wrapper {
+    min-height: 100vh;
+    width: 260px;
+    transition: margin .25s ease-out;
+}
+
+#sidebar-wrapper .sidebar-heading {
+    padding: 1.5rem 1rem;
+    font-size: 1.25rem;
+    letter-spacing: 2px;
+}
+
+#sidebar-wrapper .list-group {
+    width: 260px;
+}
+
+.list-group-item {
+    transition: all 0.2s ease-in-out;
+}
+
+.list-group-item:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    transform: translateX(5px);
+}
+
+#page-content-wrapper {
+    min-width: 100vw;
+}
+
+@media (min-width: 768px) {
+    #sidebar-wrapper {
+        margin-left: 0;
+    }
+    #page-content-wrapper {
+        min-width: 0;
+        width: 100%;
+    }
+}
+
+/* Glassmorphism components */
+.glass-panel {
+    background: rgba(33, 37, 41, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Custom Table Styles */
+.table-dark {
+    --bs-table-bg: transparent;
+}
+.table {
+    border-collapse: separate;
+    border-spacing: 0 8px;
+}
+.table thead th {
+    border-bottom: none;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    color: #6c757d;
+}
+.table tbody tr {
+    background-color: rgba(255,255,255,0.02);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+}
+.table tbody tr:hover {
+    transform: translateY(-2px);
+    background-color: rgba(255,255,255,0.05);
+}
+.table td, .table th {
+    border: none;
+    padding: 1rem;
+    vertical-align: middle;
+}
+.table td:first-child, .table th:first-child {
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+}
+.table td:last-child, .table th:last-child {
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+/* Form Styles */
+.form-control, .form-select {
+    background-color: rgba(0,0,0,0.2) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    color: #fff !important;
+}
+.form-control:focus, .form-select:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+}
+
+/* Buttons */
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+/* Live incident rows (SignalR push) flash red briefly when they arrive */
+@keyframes leakguard-row-flash {
+    0%   { background-color: rgba(220, 53, 69, 0.45); }
+    100% { background-color: transparent; }
+}
+.live-incident-row > td {
+    animation: leakguard-row-flash 2.5s ease-out;
+}
+
+/* Live leak-detected toast: solid panel so page content never bleeds through */
+.leakguard-toast {
+    background-color: #141a27 !important;
+    opacity: 1 !important;
+    border: 1px solid rgba(220, 53, 69, 0.4);
+    border-left: 4px solid #DC3545;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 18px rgba(220, 53, 69, 0.15);
+    min-width: 380px;
+    max-width: 420px;
+}
+.leakguard-toast-icon {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: rgba(220, 53, 69, 0.18);
+    color: #DC3545;
+    font-size: 1.3rem;
+    animation: leakguard-pulse 1.2s ease-in-out 3;
+}
+@keyframes leakguard-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.45); }
+    50%      { box-shadow: 0 0 0 8px rgba(220, 53, 69, 0); }
+}
+
+/* Archived rules / disabled directories are dimmed but stay visible */
+.row-archived > td {
+    opacity: 0.5;
+}

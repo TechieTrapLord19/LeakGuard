@@ -1,0 +1,24 @@
+# Build output
+bin/
+obj/
+publish/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.cache
+
+# Secrets — NEVER commit production credentials
+appsettings.Production.json
+**/Properties/PublishProfiles/
+
+# Runtime data (quarantined files, test drops, local database files)
+**/App_Data/
+
+# Diagnostic output
+wwwroot/startup_error.txt
+
+# OS junk
+Thumbs.db
+desktop.ini
